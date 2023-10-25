@@ -35,7 +35,7 @@
 <body>
 <canvas id="myCanvas"></canvas>
 <div id="uploadModel">
-  <label for="modelFile">XKT模型文件</label><input type="file" name="modelFile" id="modelFile">
+  <label for="modelFile">GLB/GLTF模型文件</label><input type="file" name="modelFile" id="modelFile">
   <button id="loadFile">加载模型文件</button>
 </div>
 <div id="uploadBCF">
@@ -54,8 +54,7 @@
   // Import the modules we need for this example
   //------------------------------------------------------------------------------------------------------------------
 
-  import {Viewer, XKTLoaderPlugin, SectionPlanesPlugin, Bitmap, LineSet, buildGridGeometry, BCFViewpointsPlugin} from "../../dist/xeokit-sdk.min.es.js";
-  // import {WebIFCLoaderPlugin} from "../../types";
+  import {Viewer, XKTLoaderPlugin, SectionPlanesPlugin, Bitmap, LineSet, buildGridGeometry, BCFViewpointsPlugin, GLTFLoaderPlugin} from "../../dist/xeokit-sdk.min.es.js";
   //------------------------------------------------------------------------------------------------------------------
   // Create a Viewer
   //------------------------------------------------------------------------------------------------------------------
@@ -82,6 +81,7 @@
 
   const xktLoader = new XKTLoaderPlugin(viewer);
   // const ifcLoader = new WebIFCLoaderPlugin(viewer);
+  const gltfLoader = new GLTFLoaderPlugin(viewer);
 
   //------------------------------------------------------------------------------------------------------------------
   // Add a SectionPlanesPlugin - we'll use this to create cross-section planes
@@ -96,7 +96,7 @@
   const bcfViewpoints = new BCFViewpointsPlugin(viewer);
 
   //------------------------------------------------------------------------------------------------------------------
-  // Load the .xkt model and IFC metadata
+  // Load the .gltf and .glb model
   //------------------------------------------------------------------------------------------------------------------
 
   let sceneModel;
@@ -106,20 +106,29 @@
     const filePath = document.getElementById("modelFile").files[0]
     console.log(filePath)
     if (!filePath) {
-      sceneModel = xktLoader.load({
+      sceneModel = gltfLoader.load({
         id: "myModel",
-        src: "../../assets/models/xkt/v8/ifc/Schependomlaan.ifc.xkt",
+        src: "../../assets/models/gltf/VianneyHouse2/glTF-Binary/VianneyHouse2.glb",
         edges: true // Emphasise edges
       });
+
+      sceneModel.on("loaded", () => {
+        viewer.cameraFlight.jumpTo(sceneModel);
+      });
+
     } else {
       const reader = new FileReader();
       reader.onload = function (e) {
         let ab = e.target.result;
         console.log(ab)
-        sceneModel = xktLoader.load({
+        sceneModel = gltfLoader.load({
           id: "myModel",
-          xkt: ab,
+          gltf: ab,
           edges: true // Emphasise edges
+        });
+
+        sceneModel.on("loaded", () => {
+          viewer.cameraFlight.jumpTo(sceneModel);
         });
       }
       reader.readAsArrayBuffer(filePath);
