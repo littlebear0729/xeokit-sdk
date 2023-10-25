@@ -1,0 +1,252 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BCF Demo for Tctwins</title>
+  <link href="../css/pageStyle.css" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/js/all.min.js"></script>
+  <style>
+    #downloadLink {
+      position: absolute;
+      font-size: 18px;
+      left: 75px;
+      top: 80px;
+      pointer-events: all;
+    }
+    #uploadModel {
+      position: absolute;
+      font-size: 18px;
+      left: 75px;
+      top: 25px;
+      pointer-events: all;
+    }
+    #uploadBCF {
+      position: absolute;
+      font-size: 18px;
+      left: 75px;
+      top: 50px;
+      pointer-events: all;
+    }
+
+  </style>
+</head>
+<body>
+<canvas id="myCanvas"></canvas>
+<div id="uploadModel">
+  <label for="modelFile">模型文件</label><input type="file" name="modelFile" id="modelFile">
+  <button id="loadFile">加载模型文件</button>
+</div>
+<div id="uploadBCF">
+  <label for="BCFFile">BCF文件</label><input type="file" name="BCFFile" id="BCFFile">
+  <button id="loadBCF">加载BCF文件</button>
+</div>
+<div id="downloadLink"></div>
+
+
+
+</body>
+
+<script type="module">
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Import the modules we need for this example
+  //------------------------------------------------------------------------------------------------------------------
+
+  import {Viewer, XKTLoaderPlugin, SectionPlanesPlugin, Bitmap, LineSet, buildGridGeometry, BCFViewpointsPlugin} from "../../dist/xeokit-sdk.min.es.js";
+  // import {WebIFCLoaderPlugin} from "../../types";
+  //------------------------------------------------------------------------------------------------------------------
+  // Create a Viewer
+  //------------------------------------------------------------------------------------------------------------------
+
+  const viewer = new Viewer({
+    canvasId: "myCanvas",
+    transparent: true
+  });
+
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Arrange the camera
+  //------------------------------------------------------------------------------------------------------------------
+
+  const camera = viewer.camera;
+
+  camera.eye = [-48.93, 50.41, -54.54];
+  camera.look = [0, 1.49, 0];
+  camera.up = [0.37, 0.83, 0.41];
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Add a XKTModelsPlugin - we'll use this to load the model geometry and IFC metadata
+  //------------------------------------------------------------------------------------------------------------------
+
+  const xktLoader = new XKTLoaderPlugin(viewer);
+  // const ifcLoader = new WebIFCLoaderPlugin(viewer);
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Add a SectionPlanesPlugin - we'll use this to create cross-section planes
+  //------------------------------------------------------------------------------------------------------------------
+
+  const sectionPlanes = new SectionPlanesPlugin(viewer);
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Add a BCFViewpointsPlugin - we'll use this to save the BCF viewpoint
+  //------------------------------------------------------------------------------------------------------------------
+
+  const bcfViewpoints = new BCFViewpointsPlugin(viewer);
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Load the .xkt model and IFC metadata
+  //------------------------------------------------------------------------------------------------------------------
+
+  let sceneModel;
+
+  const loadModelBtn = document.getElementById("loadFile")
+  loadModelBtn.addEventListener("click", function () {
+    const filePath = document.getElementById("modelFile").files[0]
+    console.log(filePath)
+    if (!filePath) {
+      sceneModel = xktLoader.load({
+        id: "myModel",
+        src: "../../assets/models/xkt/v8/ifc/Schependomlaan.ifc.xkt",
+        edges: true // Emphasise edges
+      });
+    } else {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        let ab = e.target.result;
+        console.log(ab)
+        sceneModel = xktLoader.load({
+          id: "myModel",
+          xkt: ab,
+          edges: true // Emphasise edges
+        });
+      }
+      reader.readAsArrayBuffer(filePath);
+    }
+  })
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Load the .bcf JSON file
+  //------------------------------------------------------------------------------------------------------------------
+
+  const loadBCFBtn = document.getElementById("loadBCF")
+  loadBCFBtn.addEventListener("click", function () {
+    const BCFPath = document.getElementById("BCFFile").files[0]
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      let bcf = e.target.result.toString();
+      console.log(JSON.parse(bcf))
+      bcfViewpoints.setViewpoint(JSON.parse(bcf))
+    }
+    reader.readAsText(BCFPath);
+  })
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Create a cross-section plane
+  //------------------------------------------------------------------------------------------------------------------
+
+  // Xiong：这里创建了一个切片，先注释掉
+  // sectionPlanes.createSectionPlane({
+  //   id: "myClip",
+  //   pos: [0, 0, 0],
+  //   dir: [0.5, 0.0, 0.5]
+  // });
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Create a bitmap
+  //------------------------------------------------------------------------------------------------------------------
+
+  // Xiong：这里创建了一个图纸，先注释掉
+  // const bitmap = new Bitmap(viewer.scene, {
+  //   src: "../../assets/images/schependomlaanPlanView.png",
+  //   visible: true,
+  //   height: 24.0,
+  //   pos: [-15, 0, -10],
+  //   normal: [0, -1, 0],
+  //   up: [0, 0, 1],
+  //   collidable: false,
+  //   opacity: 1.0,
+  //   clippable: false,
+  //   pickable: true
+  // });
+
+  //------------------------------------------------------------------------------------------------------------------
+  // Create a grid ground plane
+  //------------------------------------------------------------------------------------------------------------------
+
+  const geometryArrays = buildGridGeometry({
+    size: 60,
+    divisions: 10
+  });
+
+  new LineSet(viewer.scene, {
+    positions: geometryArrays.positions,
+    indices: geometryArrays.indices,
+    position: [10,0,10],
+    clippable: false
+  });
+
+  //------------------------------------------------------------------------------------------------------------------
+  // When the model has loaded,select some objects and save a BCF viewpoint
+  //
+  // The BCF viewpoint JSON is written to the JavaScript developer console
+  //------------------------------------------------------------------------------------------------------------------
+
+  // sceneModel.on("loaded", () => {
+  //
+  //   // viewer.scene.setObjectsSelected([
+  //   //   "3b2U496P5Ebhz5FROhTwFH",
+  //   //   "2MGtJUm9nD$Re1_MDIv0g2",
+  //   //   "3IbuwYOm5EV9Q6cXmwVWqd",
+  //   //   "3lhisrBxL8xgLCRdxNG$2v",
+  //   //   "1uDn0xT8LBkP15zQc9MVDW"
+  //   // ], true);
+  //
+  //   // Create download link
+  //   // https://stackoverflow.com/questions/2897619/using-html5-javascript-to-generate-and-save-a-file
+  //
+  //   const pom = document.createElement('a');
+  //
+  //   pom.onclick = function () {
+  //
+  //     const viewpoint = bcfViewpoints.getViewpoint({ // Options
+  //       spacesVisible: false, // Don't force IfcSpace types visible in viewpoint (default)
+  //       spaceBoundariesVisible: false, // Don't show IfcSpace boundaries in viewpoint (default)
+  //       openingsVisible: false // Don't force IfcOpening types visible in viewpoint (default)
+  //     });
+  //
+  //     const viewpointStr = JSON.stringify(viewpoint, null, 4);
+  //     pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(viewpointStr));
+  //   }
+  //
+  //   pom.setAttribute('download', "bcfViewpoint.json");
+  //   pom.innerText = "下载 BCF Viewpoint 文件";
+  //   document.getElementById("downloadLink").appendChild(pom);
+  // });
+  // Create download link
+  // https://stackoverflow.com/questions/2897619/using-html5-javascript-to-generate-and-save-a-file
+
+  const pom = document.createElement('a');
+
+  pom.onclick = function () {
+
+    const viewpoint = bcfViewpoints.getViewpoint({ // Options
+      spacesVisible: false, // Don't force IfcSpace types visible in viewpoint (default)
+      spaceBoundariesVisible: false, // Don't show IfcSpace boundaries in viewpoint (default)
+      openingsVisible: false // Don't force IfcOpening types visible in viewpoint (default)
+    });
+
+    const viewpointStr = JSON.stringify(viewpoint, null, 4);
+    pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(viewpointStr));
+  }
+
+  pom.setAttribute('download', "bcfViewpoint.json");
+  pom.innerText = "下载 BCF Viewpoint 文件";
+  document.getElementById("downloadLink").appendChild(pom);
+
+  window.viewer = viewer;
+
+</script>
+
+</html>
